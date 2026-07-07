@@ -1,0 +1,17 @@
+# Ignore raw scholarship documents
+data/raw/
+
+# Ignore OCR-generated PDFs
+data/ocr/
+
+# Ignore large generated outputs
+data/processed/extracted_text.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# VS Code settings
+.vscode/
+
+data/processed/deduplication_results.json
