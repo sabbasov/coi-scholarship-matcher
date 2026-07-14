@@ -1,12 +1,15 @@
 import subprocess
 import json
+import os
+import gzip
 from pathlib import Path
 
-# JSON from deduplication step
-DEDUP_JSON = Path("data/processed/deduplication_results.json")
+# Detect workspace root (3 levels up from this script: src/parsing/ocr_pipeline.py)
+WORKSPACE_ROOT = Path(__file__).parent.parent.parent
+DEDUP_JSON = WORKSPACE_ROOT / "data" / "processed" / "deduplication_results.json"
 
-# OCR output folder
-OUTPUT_FOLDER = Path("data/ocr")
+# OCR output folder (in workspace root)
+OUTPUT_FOLDER = WORKSPACE_ROOT / "data" / "ocr"
 OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
@@ -14,8 +17,12 @@ def process_pdf(input_pdf):
 
     input_pdf = Path(input_pdf)
 
-    # Preserve folder structure
-    relative_path = input_pdf.relative_to("data/raw")
+    # Ensure input_pdf is absolute; if relative, resolve from workspace root
+    if not input_pdf.is_absolute():
+        input_pdf = WORKSPACE_ROOT / input_pdf
+
+    # Preserve folder structure (relative to data/raw)
+    relative_path = Path(os.path.relpath(str(input_pdf), start=str(WORKSPACE_ROOT / "data" / "raw")))
 
     output_pdf = OUTPUT_FOLDER / relative_path
 
@@ -66,18 +73,38 @@ def process_pdf(input_pdf):
 def main():
 
     print("Loading deduplication results...\n")
-
-    with open(DEDUP_JSON, "r", encoding="utf-8") as f:
-        dedup_data = json.load(f)
+    # Support plain JSON or gzip-compressed JSON
+    if str(DEDUP_JSON).endswith(".gz") or DEDUP_JSON.suffix == ".gz":
+        with gzip.open(DEDUP_JSON, "rt", encoding="utf-8") as f:
+            dedup_data = json.load(f)
+    else:
+        with open(DEDUP_JSON, "r", encoding="utf-8") as f:
+            dedup_data = json.load(f)
 
     latest_files = []
 
     for file_info in dedup_data.values():
+        lv = file_info.get("latest_version", {})
 
-        latest_path = file_info["latest_version"]["path"]
+        # Prefer full_path when available
+        if lv.get("full_path"):
+            candidate = lv.get("full_path")
+        else:
+            candidate = lv.get("path")
+            if candidate:
+                candidate = str(Path("data/raw/ScholarshipFiles") / candidate)
 
-        if latest_path.lower().endswith(".pdf"):
-            latest_files.append(latest_path)
+        if not candidate:
+            continue
+
+        p = Path(candidate)
+
+        # Resolve relative to workspace root if not absolute
+        if not p.is_absolute():
+            p = WORKSPACE_ROOT / p
+
+        if str(p).lower().endswith(".pdf"):
+            latest_files.append(p)
 
     print(f"Found {len(latest_files)} unique PDFs to OCR.\n")
 
@@ -89,9 +116,7 @@ def main():
     failed_files = []
 
     for index, pdf_path in enumerate(latest_files, start=1):
-
         print(f"\n[{index}/{len(latest_files)}] {Path(pdf_path).name}")
-
         result = process_pdf(pdf_path)
 
         if result == "processed":
@@ -120,10 +145,6 @@ def main():
         print("\nNo failed files!")
 
     print("\nOCR pipeline complete.")
-
-
-if __name__ == "__main__":
-    main()
 
 
 if __name__ == "__main__":
