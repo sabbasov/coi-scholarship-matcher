@@ -1,4 +1,5 @@
 # Ignore raw scholarship documents
+ScholarshipFiles/
 data/raw/
 
 # Ignore OCR-generated PDFs
@@ -13,5 +14,8 @@ __pycache__/
 
 # VS Code settings
 .vscode/
+
+# API Key
+.env.openai
 
 data/processed/deduplication_results.json
