@@ -20,3 +20,5 @@ __pycache__/
 src/parsing/.env.openai
 
 data/processed/deduplication_results.json
+
+data/processed
